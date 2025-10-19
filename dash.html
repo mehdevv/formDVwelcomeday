@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Quiz Results</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background: #f2f2f7;
+            min-height: 100vh;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0;
+            background: white;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: #007aff;
+            color: white;
+            padding: 20px 16px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            margin-bottom: 4px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 16px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            color: #000;
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border: 0.5px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-number {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: #007aff;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.7;
+            font-weight: 500;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .search-box {
+            display: flex;
+            align-items: center;
+            background: #f2f2f7;
+            border-radius: 12px;
+            padding: 12px 16px;
+            border: none;
+        }
+
+        .search-box input {
+            border: none;
+            background: none;
+            outline: none;
+            font-size: 16px;
+            margin-left: 8px;
+            width: 100%;
+            color: #000;
+        }
+
+        .search-box input::placeholder {
+            color: #8e8e93;
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+
+        .filter-btn {
+            padding: 8px 16px;
+            border: none;
+            background: #f2f2f7;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            font-size: 14px;
+            white-space: nowrap;
+            color: #000;
+        }
+
+        .filter-btn:active {
+            transform: scale(0.96);
+        }
+
+        .filter-btn.active {
+            background: #007aff;
+            color: white;
+        }
+
+        .results-table-container {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .results-table th {
+            background: #f2f2f7;
+            padding: 12px 8px;
+            text-align: left;
+            font-weight: 600;
+            color: #000;
+            border-bottom: 0.5px solid rgba(0, 0, 0, 0.1);
+            font-size: 12px;
+        }
+
+        .results-table td {
+            padding: 12px 8px;
+            border-bottom: 0.5px solid rgba(0, 0, 0, 0.05);
+            vertical-align: middle;
+            font-size: 14px;
+        }
+
+        .results-table tr:active {
+            background: #f2f2f7;
+        }
+
+        .department-badge {
+            padding: 4px 8px;
+            border-radius: 6px;
+            color: white;
+            font-weight: 600;
+            font-size: 11px;
+            display: inline-block;
+        }
+
+        .rh { 
+            background: #34c759;
+        }
+        
+        .er { 
+            background: #007aff;
+        }
+        
+        .communication { 
+            background: #ff9500;
+        }
+
+        .score-bar {
+            width: 60px;
+            height: 4px;
+            background: #e5e5ea;
+            border-radius: 2px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .score-fill {
+            height: 100%;
+            background: #007aff;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #8e8e93;
+            font-size: 14px;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 20px;
+            color: #8e8e93;
+            font-size: 14px;
+        }
+
+        .export-btn {
+            background: #34c759;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        .export-btn:active {
+            transform: scale(0.96);
+            background: #28a745;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 480px) {
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+            
+            .stat-card {
+                padding: 12px;
+            }
+            
+            .stat-number {
+                font-size: 20px;
+            }
+            
+            .results-table th,
+            .results-table td {
+                padding: 8px 4px;
+                font-size: 12px;
+            }
+            
+            .department-badge {
+                font-size: 10px;
+                padding: 2px 6px;
+            }
+            
+            .score-bar {
+                width: 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Quiz Results Dashboard</h1>
+            <p>Monitor and analyze club department quiz responses</p>
+        </div>
+        
+        <div class="content">
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalResponses">0</div>
+                    <div class="stat-label">Total Responses</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="rhCount">0</div>
+                    <div class="stat-label">🧩 RH</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="erCount">0</div>
+                    <div class="stat-label">⚡ ER</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="commCount">0</div>
+                    <div class="stat-label">🎤 Communication</div>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <div class="search-box">
+                    <span>🔍</span>
+                    <input type="text" id="searchInput" placeholder="Search by email...">
+                </div>
+                
+                <div class="filter-buttons">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="RH">🧩 RH</button>
+                    <button class="filter-btn" data-filter="ER">⚡ ER</button>
+                    <button class="filter-btn" data-filter="Communication">🎤 Comm</button>
+                </div>
+                
+                <button class="export-btn" onclick="exportToCSV()">📥 Export CSV</button>
+            </div>
+            
+            <div class="results-table-container">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>Dept</th>
+                            <th>Score</th>
+                            <th>%</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsTableBody">
+                        <tr>
+                            <td colspan="5" class="loading">Loading results...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyA5LH2wfuCWyLuEtVAcQvvR9trx2wb_ruA",
+            authDomain: "formulaire-b93fc.firebaseapp.com",
+            projectId: "formulaire-b93fc",
+            storageBucket: "formulaire-b93fc.firebasestorage.app",
+            messagingSenderId: "779036695653",
+            appId: "1:779036695653:web:4d036b5814926a4081ba8c"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let allResults = [];
+        let filteredResults = [];
+        let currentFilter = 'all';
+
+        // Load and display results
+        function loadResults() {
+            db.collection('quizResults')
+                .orderBy('timestamp', 'desc')
+                .onSnapshot((snapshot) => {
+                    allResults = [];
+                    const stats = { total: 0, RH: 0, ER: 0, Communication: 0 };
+                    
+                    snapshot.forEach((doc) => {
+                        const data = doc.data();
+                        const result = { 
+                            id: doc.id, 
+                            ...data,
+                            date: data.timestamp ? new Date(data.timestamp.seconds * 1000) : new Date()
+                        };
+                        allResults.push(result);
+                        stats.total++;
+                        stats[data.department]++;
+                    });
+                    
+                    updateStats(stats);
+                    applyFilters();
+                }, (error) => {
+                    console.error('Error loading results:', error);
+                    document.getElementById('resultsTableBody').innerHTML = 
+                        '<tr><td colspan="6" class="no-results">Error loading results. Please refresh the page.</td></tr>';
+                });
+        }
+
+        function updateStats(stats) {
+            document.getElementById('totalResponses').textContent = stats.total;
+            document.getElementById('rhCount').textContent = stats.RH;
+            document.getElementById('erCount').textContent = stats.ER;
+            document.getElementById('commCount').textContent = stats.Communication;
+        }
+
+        function applyFilters() {
+            let results = [...allResults];
+            
+            // Apply department filter
+            if (currentFilter !== 'all') {
+                results = results.filter(result => result.department === currentFilter);
+            }
+            
+            // Apply search filter
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            if (searchTerm) {
+                results = results.filter(result => 
+                    result.email.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            filteredResults = results;
+            updateTable();
+        }
+
+        function updateTable() {
+            const tbody = document.getElementById('resultsTableBody');
+            
+            if (filteredResults.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="no-results">No results found.</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = '';
+            
+            filteredResults.forEach(result => {
+                const row = document.createElement('tr');
+                const percentage = Math.round(result.percentage);
+                
+                row.innerHTML = `
+                    <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${result.email}</td>
+                    <td><span class="department-badge ${result.department.toLowerCase()}">${result.department}</span></td>
+                    <td>${result.maxScore}/${result.totalQuestions}</td>
+                    <td>
+                        <div class="score-bar">
+                            <div class="score-fill" style="width: ${percentage}%"></div>
+                        </div>
+                        <span style="margin-left: 4px; font-weight: 600; font-size: 11px;">${percentage}%</span>
+                    </td>
+                    <td style="font-size: 11px;">${result.date.toLocaleDateString()}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function exportToCSV() {
+            if (filteredResults.length === 0) {
+                alert('No data to export');
+                return;
+            }
+            
+            const headers = ['Email', 'Department', 'Score', 'Percentage', 'Date'];
+            const csvContent = [
+                headers.join(','),
+                ...filteredResults.map(result => [
+                    `"${result.email}"`,
+                    result.department,
+                    `${result.maxScore}/${result.totalQuestions}`,
+                    `${Math.round(result.percentage)}%`,
+                    result.date.toLocaleDateString()
+                ].join(','))
+            ].join('\n');
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `quiz-results-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Event listeners
+        document.getElementById('searchInput').addEventListener('input', applyFilters);
+        
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                currentFilter = e.target.dataset.filter;
+                applyFilters();
+            });
+        });
+
+        // Load results when page loads
+        window.onload = loadResults;
+    </script>
+</body>
+</html>

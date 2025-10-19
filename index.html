@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Club Department Quiz</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background: #f2f2f7;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .quiz-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            padding: 0;
+            max-width: 375px;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            min-height: 600px;
+        }
+
+        .quiz-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 44px;
+            background: #f2f2f7;
+            border-bottom: 0.5px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .status-bar {
+            height: 44px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            background: #f2f2f7;
+            border-bottom: 0.5px solid rgba(0, 0, 0, 0.1);
+            font-size: 14px;
+            font-weight: 600;
+            color: #000;
+        }
+
+        .quiz-header {
+            text-align: center;
+            padding: 30px 20px 20px;
+            background: white;
+        }
+
+        .quiz-title {
+            color: #000;
+            font-size: 28px;
+            margin-bottom: 8px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .quiz-subtitle {
+            color: #8e8e93;
+            font-size: 16px;
+            font-weight: 400;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #e5e5ea;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #007aff;
+            width: 0%;
+            transition: width 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+
+        .question-container {
+            display: none;
+            padding: 20px;
+        }
+
+        .question-container.active {
+            display: block;
+            animation: slideIn 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .question-number {
+            color: #8e8e93;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .question-text {
+            color: #000;
+            font-size: 20px;
+            margin-bottom: 24px;
+            line-height: 1.4;
+            font-weight: 600;
+        }
+
+        .options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .option {
+            background: #f2f2f7;
+            border: none;
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .option:active {
+            transform: scale(0.98);
+            background: #e5e5ea;
+        }
+
+        .option.selected {
+            background: #007aff;
+            color: white;
+        }
+
+        .option.selected .option-letter {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .option input[type="radio"] {
+            display: none;
+        }
+
+        .option-label {
+            display: flex;
+            align-items: center;
+            font-size: 16px;
+            color: #000;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .option.selected .option-label {
+            color: white;
+        }
+
+        .option-letter {
+            background: #8e8e93;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            margin-right: 12px;
+            flex-shrink: 0;
+            font-size: 12px;
+        }
+
+        .navigation {
+            display: flex;
+            justify-content: space-between;
+            padding: 20px;
+            background: white;
+            border-top: 0.5px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .btn {
+            background: #007aff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+            min-width: 80px;
+        }
+
+        .btn:active {
+            transform: scale(0.96);
+            background: #0056cc;
+        }
+
+        .btn:disabled {
+            background: #c7c7cc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #8e8e93;
+        }
+
+        .btn-secondary:active {
+            background: #6d6d70;
+        }
+
+        .results-container {
+            display: none;
+            text-align: center;
+            padding: 40px 20px;
+            background: white;
+            min-height: 600px;
+        }
+
+        .results-container.active {
+            display: block;
+            animation: slideIn 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: conic-gradient(#007aff 0deg, #007aff var(--score-angle), #e5e5ea var(--score-angle));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            position: relative;
+        }
+
+        .score-circle::before {
+            content: '';
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background: white;
+            border-radius: 50%;
+        }
+
+        .score-text {
+            position: relative;
+            z-index: 1;
+            font-size: 24px;
+            font-weight: 700;
+            color: #000;
+        }
+
+        .score-message {
+            font-size: 22px;
+            color: #000;
+            margin-bottom: 16px;
+            font-weight: 700;
+        }
+
+        .score-details {
+            color: #8e8e93;
+            margin-bottom: 32px;
+            font-size: 16px;
+        }
+
+        .restart-btn {
+            background: #34c759;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .restart-btn:active {
+            background: #28a745;
+        }
+
+        .email-form {
+            background: #f2f2f7;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .email-form h3 {
+            color: #000;
+            margin-bottom: 12px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .email-form p {
+            color: #8e8e93;
+            margin-bottom: 16px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .email-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .email-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            background: white;
+            color: #000;
+            transition: all 0.2s ease;
+        }
+
+        .email-input:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px #007aff;
+        }
+
+        .send-email-btn {
+            background: #007aff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+            width: 100%;
+        }
+
+        .send-email-btn:active {
+            transform: scale(0.96);
+            background: #0056cc;
+        }
+
+        .send-email-btn:disabled {
+            background: #c7c7cc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .email-status {
+            margin-top: 12px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-weight: 500;
+            display: none;
+            font-size: 14px;
+        }
+
+        .email-status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .email-status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .email-status.loading {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .quiz-container {
+                max-width: 100%;
+                border-radius: 12px;
+            }
+            
+            .quiz-title {
+                font-size: 24px;
+            }
+            
+            .question-text {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="quiz-container">
+        <div class="status-bar">
+            <span>9:41</span>
+            <span>Club Quiz</span>
+            <span>🔋 100%</span>
+        </div>
+        
+        <div class="quiz-header">
+            <h1 class="quiz-title">Club Department Quiz</h1>
+            <p class="quiz-subtitle">Discover which department suits you best!</p>
+        </div>
+
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <div id="quizContent">
+            <!-- Questions will be dynamically inserted here -->
+        </div>
+
+        <div class="navigation">
+            <button class="btn btn-secondary" id="prevBtn" onclick="previousQuestion()" disabled>Previous</button>
+            <button class="btn" id="nextBtn" onclick="nextQuestion()" disabled>Next</button>
+        </div>
+
+        <div class="results-container" id="resultsContainer">
+            <div class="score-circle" id="scoreCircle">
+                <div class="score-text" id="scoreText">0/10</div>
+            </div>
+            <h2 class="score-message" id="scoreMessage">Great job!</h2>
+            <p class="score-details" id="scoreDetails">You got 0 out of 10 questions correct.</p>
+            
+            <div class="email-form">
+                <h3>📧 Get Your Results by Email</h3>
+                <p style="color: #666; margin-bottom: 15px;">Enter your email to receive a detailed report of your quiz results and department match.</p>
+                <div class="email-input-group">
+                    <input type="email" class="email-input" id="emailInput" placeholder="Enter your email address" required>
+                    <button class="send-email-btn" id="sendEmailBtn" onclick="sendResults()">Send Results</button>
+                </div>
+                <div class="email-status" id="emailStatus"></div>
+            </div>
+            
+            <button class="btn restart-btn" onclick="restartQuiz()">Take Quiz Again</button>
+        </div>
+        
+        <!-- Credits - Always visible -->
+        <div style="text-align: center; padding: 16px; background: #f2f2f7; border-top: 0.5px solid rgba(0, 0, 0, 0.1);">
+            <p style="color: #8e8e93; font-size: 12px; margin: 0;">
+                Made for <a href="https://instagram.com/digitalvalley_esgen" target="_blank" style="color: #007aff; text-decoration: none; font-weight: 600;">@digitalvalley_esgen</a> by <a href="https://instagram.com/pluss.dev" target="_blank" style="color: #007aff; text-decoration: none; font-weight: 600;">@pluss.dev</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyA5LH2wfuCWyLuEtVAcQvvR9trx2wb_ruA",
+            authDomain: "formulaire-b93fc.firebaseapp.com",
+            projectId: "formulaire-b93fc",
+            storageBucket: "formulaire-b93fc.firebasestorage.app",
+            messagingSenderId: "779036695653",
+            appId: "1:779036695653:web:4d036b5814926a4081ba8c"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        const questions = [
+            {
+                question: "When you join a new team, what do you do first?",
+                options: [
+                    "Meet everyone and make them feel welcome",
+                    "Think about new projects we can start",
+                    "Make a fun group name or cool post"
+                ],
+                department: ['RH', 'ER', 'Communication']
+            },
+            {
+                question: "What makes you happy?",
+                options: [
+                    "Helping people grow and improve",
+                    "Making ideas become real",
+                    "Creating things that inspire others"
+                ],
+                department: ['RH', 'ER', 'Communication']
+            },
+            {
+                question: "When there's a problem in your group, you:",
+                options: [
+                    "Listen to everyone and find a solution together",
+                    "Take charge and fix it quickly",
+                    "Talk about it in a positive way"
+                ],
+                department: ['RH', 'ER', 'Communication']
+            },
+            {
+                question: "In an event team, you want to:",
+                options: [
+                    "Manage people and schedules",
+                    "Find sponsors and partners",
+                    "Handle social media and design"
+                ],
+                department: ['RH', 'ER', 'Communication']
+            },
+            {
+                question: "What work do you like most?",
+                options: [
+                    "Organizing people and tasks",
+                    "Planning and starting new projects",
+                    "Creating and sharing ideas"
+                ],
+                department: ['RH', 'ER', 'Communication']
+            },
+            {
+                question: "Your friend is nervous before a big presentation. You:",
+                options: [
+                    "Help them relax and focus",
+                    "Give them confidence and energy",
+                    "Help them practice and improve"
+                ],
+                department: ['RH', 'ER', 'Communication']
+            },
+            {
+                question: "Which describes you best?",
+                options: [
+                    "I care about team happiness",
+                    "I love challenges and goals",
+                    "I share ideas in creative ways"
+                ],
+                department: ['RH', 'ER', 'Communication']
+            },
+            {
+                question: "How do you make decisions?",
+                options: [
+                    "Talk to everyone first",
+                    "Decide quickly and efficiently",
+                    "Think about how to explain it well"
+                ],
+                department: ['RH', 'ER', 'Communication']
+            },
+            {
+                question: "Which quote do you like most?",
+                options: [
+                    "Take care of people, and they'll take care of work",
+                    "Don't wait for chances, make them",
+                    "Keep it simple, but make it matter"
+                ],
+                department: ['RH', 'ER', 'Communication']
+            },
+            {
+                question: "Your club is having an open day. You:",
+                options: [
+                    "Plan who does what and when",
+                    "Find sponsors and partners",
+                    "Make posters and post on Instagram"
+                ],
+                department: ['RH', 'ER', 'Communication']
+            }
+        ];
+
+        let currentQuestion = 0;
+        let userAnswers = [];
+        let departmentScores = { 'RH': 0, 'ER': 0, 'Communication': 0 };
+        let quizResults = null;
+
+        function initializeQuiz() {
+            const quizContent = document.getElementById('quizContent');
+            quizContent.innerHTML = '';
+
+            questions.forEach((q, index) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'question-container';
+                questionDiv.id = `question-${index}`;
+                if (index === 0) questionDiv.classList.add('active');
+
+                questionDiv.innerHTML = `
+                    <div class="question-number">Question ${index + 1} of ${questions.length}</div>
+                    <div class="question-text">${q.question}</div>
+                    <div class="options-container">
+                        ${q.options.map((option, optionIndex) => `
+                            <div class="option" onclick="selectOption(${index}, ${optionIndex})">
+                                <input type="radio" name="question-${index}" value="${optionIndex}" id="q${index}-option${optionIndex}">
+                                <label class="option-label" for="q${index}-option${optionIndex}">
+                                    <div class="option-letter">${String.fromCharCode(65 + optionIndex)}</div>
+                                    <div>${option}</div>
+                                </label>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+
+                quizContent.appendChild(questionDiv);
+            });
+
+            updateProgress();
+            updateNavigation();
+        }
+
+        function selectOption(questionIndex, optionIndex) {
+            // Remove previous selection for this question
+            const questionDiv = document.getElementById(`question-${questionIndex}`);
+            const options = questionDiv.querySelectorAll('.option');
+            options.forEach(option => option.classList.remove('selected'));
+
+            // Add selection to clicked option
+            options[optionIndex].classList.add('selected');
+
+            // Store user answer
+            userAnswers[questionIndex] = optionIndex;
+
+            // Enable next button
+            document.getElementById('nextBtn').disabled = false;
+
+            // If this is the last question, change button text
+            if (questionIndex === questions.length - 1) {
+                document.getElementById('nextBtn').textContent = 'Finish Quiz';
+            }
+        }
+
+        function nextQuestion() {
+            if (currentQuestion < questions.length - 1) {
+                // Hide current question
+                document.getElementById(`question-${currentQuestion}`).classList.remove('active');
+                
+                // Show next question
+                currentQuestion++;
+                document.getElementById(`question-${currentQuestion}`).classList.add('active');
+                
+                updateProgress();
+                updateNavigation();
+            } else {
+                // Finish quiz
+                finishQuiz();
+            }
+        }
+
+        function previousQuestion() {
+            if (currentQuestion > 0) {
+                // Hide current question
+                document.getElementById(`question-${currentQuestion}`).classList.remove('active');
+                
+                // Show previous question
+                currentQuestion--;
+                document.getElementById(`question-${currentQuestion}`).classList.add('active');
+                
+                updateProgress();
+                updateNavigation();
+            }
+        }
+
+        function updateProgress() {
+            const progress = ((currentQuestion + 1) / questions.length) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+        }
+
+        function updateNavigation() {
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+
+            prevBtn.disabled = currentQuestion === 0;
+            
+            // Check if current question is answered
+            const isAnswered = userAnswers[currentQuestion] !== undefined;
+            nextBtn.disabled = !isAnswered && currentQuestion < questions.length - 1;
+            
+            if (currentQuestion === questions.length - 1 && isAnswered) {
+                nextBtn.textContent = 'Finish Quiz';
+            } else {
+                nextBtn.textContent = 'Next';
+            }
+        }
+
+        function finishQuiz() {
+            // Calculate department scores
+            departmentScores = { 'RH': 0, 'ER': 0, 'Communication': 0 };
+            questions.forEach((q, index) => {
+                if (userAnswers[index] !== undefined) {
+                    const selectedDepartment = q.department[userAnswers[index]];
+                    departmentScores[selectedDepartment]++;
+                }
+            });
+
+            // Find the department with the highest score
+            const maxScore = Math.max(...Object.values(departmentScores));
+            const topDepartment = Object.keys(departmentScores).find(dept => departmentScores[dept] === maxScore);
+
+            // Store quiz results (but don't show them yet)
+            quizResults = {
+                departmentScores: departmentScores,
+                topDepartment: topDepartment,
+                maxScore: maxScore,
+                totalQuestions: questions.length,
+                userAnswers: userAnswers,
+                timestamp: new Date().toISOString(),
+                percentage: (maxScore / questions.length) * 100
+            };
+
+            // Hide quiz content and show email form (no results yet)
+            document.getElementById('quizContent').style.display = 'none';
+            document.querySelector('.navigation').style.display = 'none';
+            document.getElementById('resultsContainer').classList.add('active');
+
+            // Show email form but hide results
+            showEmailFormOnly();
+        }
+
+        function showEmailFormOnly() {
+            // Hide the score circle and results
+            document.getElementById('scoreCircle').style.display = 'none';
+            document.getElementById('scoreMessage').style.display = 'none';
+            document.getElementById('scoreDetails').style.display = 'none';
+            
+            // Show email form
+            document.querySelector('.email-form').style.display = 'block';
+            
+            // Update the message
+            document.querySelector('.email-form h3').textContent = '📧 Get Your Results';
+            document.querySelector('.email-form p').textContent = 'Enter your email to receive your department match results and see which department suits you best!';
+        }
+
+        async function sendResults() {
+            const emailInput = document.getElementById('emailInput');
+            const sendBtn = document.getElementById('sendEmailBtn');
+            
+            const email = emailInput.value.trim();
+            
+            // Validate email
+            if (!email) {
+                showEmailStatus('Please enter your email address.', 'error');
+                return;
+            }
+            
+            if (!isValidEmail(email)) {
+                showEmailStatus('Please enter a valid email address.', 'error');
+                return;
+            }
+            
+            // Show loading state
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Saving...';
+            showEmailStatus('Saving your results...', 'loading');
+            
+            try {
+                // Store in Firebase Firestore
+                await db.collection('quizResults').add({
+                    email: email,
+                    department: quizResults.topDepartment,
+                    departmentScores: quizResults.departmentScores,
+                    maxScore: quizResults.maxScore,
+                    totalQuestions: quizResults.totalQuestions,
+                    percentage: quizResults.percentage,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    userAgent: navigator.userAgent
+                });
+                
+                // Show success message
+                showEmailStatus('✅ Results saved successfully!', 'success');
+                sendBtn.textContent = 'Saved!';
+                
+                // Now show the results
+                setTimeout(() => {
+                    showQuizResults();
+                }, 1500);
+                
+            } catch (error) {
+                console.error('Error saving results:', error);
+                showEmailStatus('❌ Failed to save results. Please try again.', 'error');
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send Results';
+            }
+        }
+        
+        function showQuizResults() {
+            // Hide email form
+            document.querySelector('.email-form').style.display = 'none';
+            
+            // Show results
+            document.getElementById('scoreCircle').style.display = 'flex';
+            document.getElementById('scoreMessage').style.display = 'block';
+            document.getElementById('scoreDetails').style.display = 'block';
+            
+            // Update results display
+            const { topDepartment, maxScore, totalQuestions } = quizResults;
+            const percentage = (maxScore / totalQuestions) * 100;
+            const scoreAngle = (percentage / 100) * 360;
+            
+            document.getElementById('scoreCircle').style.setProperty('--score-angle', scoreAngle + 'deg');
+            document.getElementById('scoreText').textContent = `${maxScore}/${totalQuestions}`;
+            document.getElementById('scoreDetails').textContent = `You scored ${maxScore} points for ${topDepartment}.`;
+
+            // Set department-specific message
+            let message = '';
+            let emoji = '';
+            let description = '';
+            
+            switch(topDepartment) {
+                case 'RH':
+                    emoji = '🧩';
+                    message = 'You belong in RH (Human Resources)!';
+                    description = 'You\'re empathetic, organized, and love helping people. Perfect for managing team dynamics and supporting member growth.';
+                    break;
+                case 'ER':
+                    emoji = '⚡';
+                    message = 'You belong in ER (Entrepreneuriat/Enterprise Relations)!';
+                    description = 'You\'re ambitious, proactive, and love taking initiative. Great for partnerships, sponsorships, and project management.';
+                    break;
+                case 'Communication':
+                    emoji = '🎤';
+                    message = 'You belong in Communication!';
+                    description = 'You\'re creative, expressive, and love connecting and sharing ideas. Perfect for social media, content creation, and event promotion.';
+                    break;
+            }
+            
+            document.getElementById('scoreMessage').innerHTML = `${emoji} ${message}<br><small style="font-size: 0.8em; color: #666; margin-top: 10px; display: block;">${description}</small>`;
+        }
+
+        function showEmailStatus(message, type) {
+            const statusDiv = document.getElementById('emailStatus');
+            statusDiv.textContent = message;
+            statusDiv.className = `email-status ${type}`;
+            statusDiv.style.display = 'block';
+        }
+        
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+        
+
+        function restartQuiz() {
+            currentQuestion = 0;
+            userAnswers = [];
+            departmentScores = { 'RH': 0, 'ER': 0, 'Communication': 0 };
+            quizResults = null;
+
+            // Reset UI
+            document.getElementById('quizContent').style.display = 'block';
+            document.querySelector('.navigation').style.display = 'flex';
+            document.getElementById('resultsContainer').classList.remove('active');
+            
+            // Reset email form
+            document.getElementById('emailInput').value = '';
+            document.getElementById('sendEmailBtn').disabled = false;
+            document.getElementById('sendEmailBtn').textContent = 'Send Results';
+            document.getElementById('emailStatus').style.display = 'none';
+            
+            // Reset results display
+            document.getElementById('scoreCircle').style.display = 'flex';
+            document.getElementById('scoreMessage').style.display = 'block';
+            document.getElementById('scoreDetails').style.display = 'block';
+            document.querySelector('.email-form').style.display = 'block';
+
+            // Reinitialize quiz
+            initializeQuiz();
+        }
+
+        // Initialize quiz when page loads
+        window.onload = initializeQuiz;
+    </script>
+</body>
+</html>
