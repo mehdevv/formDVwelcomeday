@@ -249,6 +249,92 @@
             background: #28a745;
         }
 
+        /* Password Protection */
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f2f2f7;
+            padding: 20px;
+        }
+
+        .login-box {
+            background: white;
+            border-radius: 16px;
+            padding: 40px 30px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            text-align: center;
+            max-width: 320px;
+            width: 100%;
+        }
+
+        .login-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #000;
+            margin-bottom: 8px;
+        }
+
+        .login-subtitle {
+            color: #8e8e93;
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+
+        .password-input {
+            width: 100%;
+            padding: 16px;
+            border: 2px solid #e5e5ea;
+            border-radius: 12px;
+            font-size: 18px;
+            text-align: center;
+            letter-spacing: 8px;
+            margin-bottom: 20px;
+            background: #f2f2f7;
+            color: #000;
+            font-weight: 600;
+        }
+
+        .password-input:focus {
+            outline: none;
+            border-color: #007aff;
+            background: white;
+        }
+
+        .login-btn {
+            width: 100%;
+            background: #007aff;
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .login-btn:active {
+            transform: scale(0.96);
+            background: #0056cc;
+        }
+
+        .error-message {
+            color: #ff3b30;
+            font-size: 14px;
+            margin-top: 12px;
+            display: none;
+        }
+
+        .dashboard-content {
+            display: none;
+        }
+
+        .dashboard-content.authenticated {
+            display: block;
+        }
+
         /* Mobile optimizations */
         @media (max-width: 480px) {
             .stats {
@@ -282,11 +368,24 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>📊 Quiz Results Dashboard</h1>
-            <p>Monitor and analyze club department quiz responses</p>
+    <!-- Login Screen -->
+    <div class="login-container" id="loginContainer">
+        <div class="login-box">
+            <h1 class="login-title">🔐 Admin Access</h1>
+            <p class="login-subtitle">Enter 4-digit password to continue</p>
+            <input type="password" class="password-input" id="passwordInput" placeholder="••••" maxlength="4" autocomplete="off">
+            <button class="login-btn" onclick="checkPassword()">Access Dashboard</button>
+            <div class="error-message" id="errorMessage">Incorrect password. Please try again.</div>
         </div>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div class="dashboard-content" id="dashboardContent">
+        <div class="container">
+            <div class="header">
+                <h1>📊 Quiz Results Dashboard</h1>
+                <p>Monitor and analyze club department quiz responses</p>
+            </div>
         
         <div class="content">
             <div class="stats">
@@ -344,6 +443,7 @@
             </div>
         </div>
     </div>
+    </div>
 
     <script>
         // Firebase config
@@ -362,6 +462,45 @@
         let allResults = [];
         let filteredResults = [];
         let currentFilter = 'all';
+
+        // Password authentication
+        const CORRECT_PASSWORD = '6589';
+
+        function checkPassword() {
+            const passwordInput = document.getElementById('passwordInput');
+            const errorMessage = document.getElementById('errorMessage');
+            const loginContainer = document.getElementById('loginContainer');
+            const dashboardContent = document.getElementById('dashboardContent');
+
+            if (passwordInput.value === CORRECT_PASSWORD) {
+                // Correct password - show dashboard
+                loginContainer.style.display = 'none';
+                dashboardContent.classList.add('authenticated');
+                loadResults(); // Load dashboard data
+            } else {
+                // Wrong password - show error
+                errorMessage.style.display = 'block';
+                passwordInput.value = '';
+                passwordInput.focus();
+                
+                // Hide error after 3 seconds
+                setTimeout(() => {
+                    errorMessage.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        // Allow Enter key to submit password
+        document.getElementById('passwordInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                checkPassword();
+            }
+        });
+
+        // Auto-focus password input
+        window.onload = function() {
+            document.getElementById('passwordInput').focus();
+        };
 
         // Load and display results
         function loadResults() {
